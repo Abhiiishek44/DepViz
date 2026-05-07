@@ -10,6 +10,15 @@ import ReactFlow, {
 } from "reactflow";
 import dagre from "dagre";
 
+import { FolderNodeComponent, FileNodeComponent, FunctionNodeComponent } from "./components/nodes/CustomNodes";
+import { BreadcrumbNav } from "./components/BreadcrumbNav";
+
+const NODE_TYPES = {
+  folder: FolderNodeComponent,
+  file: FileNodeComponent,
+  function: FunctionNodeComponent
+};
+
 type FunctionNode = {
   id: string;
   name: string;
@@ -28,6 +37,9 @@ type FileNode = {
 type FolderNode = {
   id: string;
   name: string;
+  fullPath: string;
+  parentFolderId?: string;
+  childFolders: string[];
   files: string[];
 };
 
@@ -45,45 +57,15 @@ type DrillState = {
 
 type NodeKind = "folder" | "file" | "function";
 
-type GraphNode = Node<{ label: JSX.Element }> & { type: NodeKind };
+type GraphNode = Node<any> & { type: NodeKind };
 
 const EDGE_STYLE = {
-  smooth: "smoothstep" as const,
+  hierarchy: { stroke: 'rgba(0, 200, 255, 0.4)', strokeWidth: 1.5 },
+  file: { stroke: 'rgba(0, 255, 120, 0.4)', strokeWidth: 1.5 },
+  call: { stroke: 'rgba(180, 80, 255, 0.6)', strokeWidth: 1.5, strokeDasharray: '4 4' },
+  incoming: { stroke: 'rgba(180, 80, 255, 0.6)', strokeWidth: 1.5, strokeDasharray: '4 4' },
   arrow: MarkerType.ArrowClosed
 };
-
-const getNodeLabel = (fn: FunctionNode) => (
-  <div style={{ padding: '10px', minWidth: '160px' }}>
-    <strong style={{ fontSize: '14px', display: 'block' }}>{fn.name || 'anonymous'}</strong>
-    <div style={{ fontSize: '10px', color: '#666', marginTop: '4px', wordBreak: 'break-all' }}>
-      {fn.file.split('/').slice(-2).join('/')}
-    </div>
-    <div style={{ fontSize: '9px', color: '#aaa', marginTop: '4px' }}>
-      Params: {fn.params.length} • Calls: {fn.calls.length}
-    </div>
-  </div>
-);
-
-const getFileLabel = (file: FileNode) => (
-  <div style={{ padding: '10px', minWidth: '190px' }}>
-    <strong style={{ fontSize: '14px', display: 'block' }}>📄 File</strong>
-    <div style={{ fontSize: '10px', color: '#666', marginTop: '4px', wordBreak: 'break-all' }}>
-      {file.path.split('/').slice(-2).join('/')}
-    </div>
-    <div style={{ fontSize: '9px', color: '#aaa', marginTop: '4px' }}>
-      Functions: {file.functions.length} • Imports: {file.imports.length}
-    </div>
-  </div>
-);
-
-const getFolderLabel = (folder: FolderNode) => (
-  <div style={{ padding: '12px', minWidth: '200px' }}>
-    <strong style={{ fontSize: '15px', display: 'block' }}>📁 {folder.name}</strong>
-    <div style={{ fontSize: '10px', color: '#666', marginTop: '6px' }}>
-      Files: {folder.files.length}
-    </div>
-  </div>
-);
 
 const getPathSegments = (path: string) => path.split('/').filter(Boolean);
 
@@ -111,18 +93,52 @@ const getRelativeSegments = (path: string, rootSegments: string[]) => {
 };
 
 const buildFolderMap = (files: FileNode[]) => {
-  const filePaths = files.map((file) => file.path);
+  const filePaths = files.map((file) => file.path.replace(/\\/g, '/'));
   const rootSegments = getCommonRootSegments(filePaths);
   const folders = new Map<string, FolderNode>();
 
-  for (const file of files) {
-    const relativeSegments = getRelativeSegments(file.path, rootSegments);
-    const folderName = relativeSegments[0] || "(root)";
-    const folderId = `folder:${folderName}`;
-    const folder = folders.get(folderId) || { id: folderId, name: folderName, files: [] };
-    folder.files.push(file.id);
-    folders.set(folderId, folder);
-  }
+  files.forEach((file) => {
+    const relativeSegments = getRelativeSegments(file.path.replace(/\\/g, '/'), rootSegments);
+    const folderSegments = relativeSegments.slice(0, -1);
+    
+    if (folderSegments.length === 0) {
+      folderSegments.push("(root)");
+    }
+
+    let currentPath = '';
+    let previousFolderId: string | undefined = undefined;
+
+    folderSegments.forEach((segment, index) => {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+      const folderId = `folder:${currentPath}`;
+
+      if (!folders.has(folderId)) {
+        folders.set(folderId, {
+          id: folderId,
+          name: segment,
+          fullPath: currentPath,
+          parentFolderId: previousFolderId,
+          childFolders: [],
+          files: []
+        });
+      }
+
+      const folder = folders.get(folderId)!;
+
+      if (previousFolderId) {
+        const parent = folders.get(previousFolderId)!;
+        if (!parent.childFolders.includes(folderId)) {
+          parent.childFolders.push(folderId);
+        }
+      }
+
+      if (index === folderSegments.length - 1) {
+        folder.files.push(file.id);
+      }
+
+      previousFolderId = folderId;
+    });
+  });
 
   return Array.from(folders.values());
 };
@@ -134,10 +150,10 @@ const layoutGraph = (nodes: GraphNode[], edges: Edge[]) => {
 
   const rawNodes = nodes.map((node) => {
     const size = node.type === "folder"
-      ? { width: 300, height: 120 }
+      ? { width: 256, height: 120 }
       : node.type === "file"
-        ? { width: 280, height: 110 }
-        : { width: 260, height: 90 };
+        ? { width: 224, height: 100 }
+        : { width: 192, height: 80 };
     dagreGraph.setNode(node.id, size);
     return node;
   });
@@ -165,7 +181,7 @@ const layoutGraph = (nodes: GraphNode[], edges: Edge[]) => {
   return { nodes: positionedNodes, edges: rawEdges };
 };
 
-export const GraphView = ({ graph }: { graph: CodeGraph }) => {
+export const GraphView = ({ graph, onNodeSelect }: { graph: CodeGraph; onNodeSelect?: (node: any) => void }) => {
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
@@ -190,19 +206,37 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     let currentId: string | undefined = nodeId;
     const parents = parentMapRef.current;
 
-    while (currentId) {
+    let safety = 0;
+    while (currentId && safety < 50) {
       breadcrumbs.unshift(currentId);
       const parentSet = parents.get(currentId);
       const parent = parentSet ? Array.from(parentSet.values())[0] : undefined;
+      
+      // Prevent recursion loops
+      if (parent === currentId) break;
+      
       currentId = parent;
+      safety++;
     }
     return breadcrumbs;
   }, []);
 
   const selectedBreadcrumbs = useMemo(() => {
     if (!selectedNodeId) return [];
-    return getParentBreadcrumb(selectedNodeId).map((id) => id.replace(/^folder:/, ""));
+    const ids = getParentBreadcrumb(selectedNodeId);
+    return ids.map((id) => {
+      if (id.startsWith('folder:')) {
+        return id.split('/').pop() || id.replace('folder:', '');
+      }
+      // If it's a file path, get the filename
+      if (id.includes('/') || id.includes('\\')) {
+        return id.split(/[\\/]/).pop() || id;
+      }
+      // Otherwise, it might be a function name or already a clean ID
+      return id;
+    });
   }, [getParentBreadcrumb, selectedNodeId]);
+
 
   const focusNodeIds = useMemo(() => {
     if (!focusMode || !selectedNodeId) return new Set<string>();
@@ -231,24 +265,14 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     childMap.set(parentId, children);
   }, []);
 
-  const ensureNode = useCallback((node: GraphNode) => {
-    setNodes((prev) => (prev.some((n) => n.id === node.id) ? prev : [...prev, node]));
-  }, []);
-
-  const ensureEdge = useCallback((edge: Edge) => {
-    setEdges((prev) => (prev.some((e) => e.id === edge.id) ? prev : [...prev, edge]));
-  }, []);
-
-  const relayout = useCallback(() => {
-    setNodes((currentNodes) => {
-      const layout = layoutGraph(currentNodes, edges);
-      if (rfInstance) {
-        const viewport = rfInstance.getViewport();
-        requestAnimationFrame(() => rfInstance.setViewport(viewport));
-      }
-      return layout.nodes;
-    });
-  }, [edges, rfInstance]);
+  const applyLayout = useCallback((newNodes: GraphNode[], newEdges: Edge[]) => {
+    const layout = layoutGraph(newNodes, newEdges);
+    setNodes(layout.nodes as GraphNode[]);
+    setEdges(layout.edges);
+    if (rfInstance) {
+      setTimeout(() => rfInstance.fitView(), 50);
+    }
+  }, [rfInstance]);
 
   const removeSubtree = useCallback((rootId: string) => {
     const childMap = childMapRef.current;
@@ -308,8 +332,7 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
       }
       return next;
     });
-    relayout();
-  }, [relayout, removeSubtree]);
+  }, [removeSubtree]);
 
   const expandFolder = useCallback(async (folderId: string) => {
     if (drillState.expandedFolders.has(folderId)) {
@@ -323,26 +346,55 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
       return;
     }
 
+    const pendingNodes = [...nodes];
+    const pendingEdges = [...edges];
+
+    folder.childFolders.forEach((childId) => {
+      const childFolder = folderNodes.find((f) => f.id === childId);
+      if (!childFolder) return;
+      if (pendingNodes.some(n => n.id === childFolder.id)) return;
+
+      pendingNodes.push({
+        id: childFolder.id,
+        type: "folder",
+        position: { x: 0, y: 0 },
+        data: { label: childFolder.name, foldersCount: childFolder.childFolders.length, filesCount: childFolder.files.length },
+      });
+
+      pendingEdges.push({
+        id: `e-folder-${folderId}-${childId}`,
+        source: folderId,
+        target: childId,
+        type: "smoothstep",
+        animated: false,
+        style: EDGE_STYLE.hierarchy,
+      });
+
+      linkNodes(folderId, childId);
+    });
+
     folder.files.forEach((fileId) => {
       const file = graph.files[fileId];
       if (!file) return;
+      if (pendingNodes.some(n => n.id === file.id)) return;
 
-      ensureNode({
+      const pathSegments = file.path.split(/[\\/]/);
+
+      pendingNodes.push({
         id: file.id,
         type: "file",
         position: { x: 0, y: 0 },
-        data: { label: getFileLabel(file) },
-        style: { border: '2px solid #3b82f6', borderRadius: '6px', background: '#eff6ff' }
+        data: { name: pathSegments.pop(), parentPath: pathSegments.slice(-2).join('/'), importsCount: file.imports.length, functionsCount: file.functions.length },
       });
 
-      ensureEdge({
+      pendingEdges.push({
         id: `e-folder-${folderId}-${file.id}`,
         source: folderId,
         target: file.id,
-        type: EDGE_STYLE.smooth,
-        animated: true,
-        style: { stroke: '#2563eb', strokeWidth: 2 },
-        markerEnd: { type: EDGE_STYLE.arrow, color: '#2563eb' }
+        type: "smoothstep",
+        animated: false,
+        style: EDGE_STYLE.hierarchy,
+        markerEnd: { type: EDGE_STYLE.arrow, color: 'rgba(0, 200, 255, 0.4)' }
       });
 
       linkNodes(folderId, file.id);
@@ -353,8 +405,8 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
       expandedFolders: new Set(prev.expandedFolders).add(folderId)
     }));
     setLoadingNodeId(null);
-    relayout();
-  }, [collapseNode, drillState.expandedFolders, ensureEdge, ensureNode, folderNodes, graph.files, linkNodes, relayout]);
+    applyLayout(pendingNodes, pendingEdges);
+  }, [collapseNode, drillState.expandedFolders, folderNodes, graph.files, linkNodes, applyLayout, nodes, edges]);
 
   const expandFile = useCallback(async (fileId: string) => {
     if (drillState.expandedFiles.has(fileId)) {
@@ -363,23 +415,27 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     }
     setLoadingNodeId(fileId);
     const functions: FunctionNode[] = await window.api.getFunctionsByFile(fileId);
+    const pendingNodes = [...nodes];
+    const pendingEdges = [...edges];
+
     functions.forEach((fn: FunctionNode) => {
-      ensureNode({
+      if (pendingNodes.some(n => n.id === fn.id)) return;
+
+      pendingNodes.push({
         id: fn.id,
         type: "function",
         position: { x: 0, y: 0 },
-        data: { label: getNodeLabel(fn) },
-        style: { border: '1px solid #777', borderRadius: '5px', background: '#fff' }
+        data: { name: fn.name || 'anonymous', paramsCount: fn.params.length, callsCount: fn.calls.length },
       });
 
-      ensureEdge({
+      pendingEdges.push({
         id: `e-file-${fileId}-${fn.id}`,
         source: fileId,
         target: fn.id,
-        type: EDGE_STYLE.smooth,
+        type: "smoothstep",
         animated: true,
-        style: { stroke: '#3b82f6', strokeWidth: 2 },
-        markerEnd: { type: EDGE_STYLE.arrow, color: '#3b82f6' }
+        style: EDGE_STYLE.file,
+        markerEnd: { type: EDGE_STYLE.arrow, color: 'rgba(0, 255, 120, 0.4)' }
       });
 
       linkNodes(fileId, fn.id);
@@ -390,8 +446,8 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
       expandedFiles: new Set(prev.expandedFiles).add(fileId)
     }));
     setLoadingNodeId(null);
-    relayout();
-  }, [drillState.expandedFiles, ensureEdge, ensureNode, relayout]);
+    applyLayout(pendingNodes, pendingEdges);
+  }, [drillState.expandedFiles, applyLayout, nodes, edges, linkNodes, collapseNode]);
 
   const expandFunctionCalls = useCallback(async (functionId: string) => {
     if (drillState.expandedFunctions.has(functionId)) {
@@ -400,23 +456,27 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     }
     setLoadingNodeId(functionId);
     const targets: FunctionNode[] = await window.api.getFunctionCalls(functionId);
+    const pendingNodes = [...nodes];
+    const pendingEdges = [...edges];
+
     targets.forEach((fn: FunctionNode) => {
-      ensureNode({
+      if (pendingNodes.some(n => n.id === fn.id)) return;
+
+      pendingNodes.push({
         id: fn.id,
         type: "function",
         position: { x: 0, y: 0 },
-        data: { label: getNodeLabel(fn) },
-        style: { border: '1px solid #777', borderRadius: '5px', background: '#fff' }
+        data: { name: fn.name || 'anonymous', paramsCount: fn.params.length, callsCount: fn.calls.length },
       });
 
-      ensureEdge({
+      pendingEdges.push({
         id: `e-call-${functionId}-${fn.id}`,
         source: functionId,
         target: fn.id,
-        type: EDGE_STYLE.smooth,
+        type: "smoothstep",
         animated: true,
-        style: { stroke: '#f59e0b', strokeWidth: 2 },
-        markerEnd: { type: EDGE_STYLE.arrow, color: '#f59e0b' }
+        style: EDGE_STYLE.call,
+        markerEnd: { type: EDGE_STYLE.arrow, color: 'rgba(180, 80, 255, 0.6)' }
       });
 
       linkNodes(functionId, fn.id);
@@ -427,8 +487,8 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
       expandedFunctions: new Set(prev.expandedFunctions).add(functionId)
     }));
     setLoadingNodeId(null);
-    relayout();
-  }, [drillState.expandedFunctions, ensureEdge, ensureNode, relayout]);
+    applyLayout(pendingNodes, pendingEdges);
+  }, [drillState.expandedFunctions, applyLayout, nodes, edges, linkNodes, collapseNode]);
 
   const expandIncomingCalls = useCallback(async (functionId: string) => {
     if (drillState.expandedIncoming.has(functionId)) {
@@ -437,23 +497,27 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     }
     setLoadingNodeId(functionId);
     const callers: FunctionNode[] = await window.api.getIncomingCalls(functionId);
+    const pendingNodes = [...nodes];
+    const pendingEdges = [...edges];
+
     callers.forEach((fn: FunctionNode) => {
-      ensureNode({
+      if (pendingNodes.some(n => n.id === fn.id)) return;
+
+      pendingNodes.push({
         id: fn.id,
         type: "function",
         position: { x: 0, y: 0 },
-        data: { label: getNodeLabel(fn) },
-        style: { border: '1px solid #777', borderRadius: '5px', background: '#fff' }
+        data: { name: fn.name || 'anonymous', paramsCount: fn.params.length, callsCount: fn.calls.length },
       });
 
-      ensureEdge({
+      pendingEdges.push({
         id: `e-incoming-${fn.id}-${functionId}`,
         source: fn.id,
         target: functionId,
-        type: EDGE_STYLE.smooth,
+        type: "smoothstep",
         animated: true,
-        style: { stroke: '#10b981', strokeWidth: 2 },
-        markerEnd: { type: EDGE_STYLE.arrow, color: '#10b981' }
+        style: EDGE_STYLE.incoming,
+        markerEnd: { type: EDGE_STYLE.arrow, color: 'rgba(180, 80, 255, 0.6)' }
       });
 
       linkNodes(functionId, fn.id);
@@ -464,11 +528,13 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
       expandedIncoming: new Set(prev.expandedIncoming).add(functionId)
     }));
     setLoadingNodeId(null);
-    relayout();
-  }, [drillState.expandedIncoming, ensureEdge, ensureNode, relayout]);
+    applyLayout(pendingNodes, pendingEdges);
+  }, [drillState.expandedIncoming, applyLayout, nodes, edges, linkNodes, collapseNode]);
 
-  const handleNodeClick = useCallback((_: unknown, node: Node) => {
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    if (event.detail > 1) return; // Ignore double-click events, let onNodeDoubleClick handle it
     setSelectedNodeId(node.id);
+    if (onNodeSelect) onNodeSelect(node);
     if (node.type === "folder") {
       expandFolder(node.id);
     } else if (node.type === "file") {
@@ -476,7 +542,7 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     } else if (node.type === "function") {
       expandFunctionCalls(node.id);
     }
-  }, [expandFile, expandFolder, expandFunctionCalls]);
+  }, [expandFile, expandFolder, expandFunctionCalls, onNodeSelect]);
 
   const handleNodeDoubleClick = useCallback((_: unknown, node: Node) => {
     if (node.type === "function") {
@@ -485,36 +551,38 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
   }, [expandIncomingCalls]);
 
   useEffect(() => {
-    if (!graph || !graph.files) return;
+    if (!graph || !graph.files || Object.keys(graph.files).length === 0) return;
     if (nodes.length > 0) {
       setNodes((prev) => prev.map((node) => {
         if (node.type === "file") {
           const file = graph.files[node.id];
-          return file ? { ...node, data: { label: getFileLabel(file) } } : node;
+          const pathSegments = file ? file.path.split(/[\\/]/) : [];
+          return file ? { ...node, data: { name: pathSegments.pop(), parentPath: pathSegments.slice(-2).join('/'), importsCount: file.imports.length, functionsCount: file.functions.length } } : node;
         }
         if (node.type === "function") {
           const fn = graph.functions[node.id];
-          return fn ? { ...node, data: { label: getNodeLabel(fn) } } : node;
+          return fn ? { ...node, data: { name: fn.name || 'anonymous', paramsCount: fn.params.length, callsCount: fn.calls.length } } : node;
         }
         if (node.type === "folder") {
           const folder = folderNodes.find((item) => item.id === node.id);
-          return folder ? { ...node, data: { label: getFolderLabel(folder) } } : node;
+          return folder ? { ...node, data: { label: folder.name, foldersCount: folder.childFolders.length, filesCount: folder.files.length } } : node;
         }
         return node;
       }));
       return;
     }
 
-    const baseNodes: GraphNode[] = folderNodes.map((folder) => ({
+    const rootFolders = folderNodes.filter((f) => !f.parentFolderId);
+    const baseNodes: GraphNode[] = rootFolders.map((folder) => ({
       id: folder.id,
       type: "folder",
       position: { x: 0, y: 0 },
-      data: { label: getFolderLabel(folder) },
-      style: { border: '2px solid #6366f1', borderRadius: '8px', background: '#eef2ff' }
+      data: { label: folder.name, foldersCount: folder.childFolders.length, filesCount: folder.files.length },
     }));
 
     setNodes(baseNodes);
     setEdges([]);
+
     setDrillState({
       expandedFolders: new Set(),
       expandedFiles: new Set(),
@@ -523,11 +591,7 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     });
   }, [fileNodes, folderNodes, graph, nodes.length]);
 
-  useEffect(() => {
-    if (nodes.length === 0) return;
-    const layout = layoutGraph(nodes, edges);
-    setNodes(layout.nodes as GraphNode[]);
-  }, [edges]);
+
 
   const displayNodes = useMemo(() => {
     if (!focusMode || !selectedNodeId) return nodes;
@@ -539,9 +603,7 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
         ...node,
         style: {
           ...node.style,
-          opacity: isFocused ? 1 : 0.15,
-          borderColor: isSelected ? '#111827' : node.style?.borderColor,
-          boxShadow: isHovered ? '0 0 0 2px rgba(59,130,246,0.35)' : node.style?.boxShadow
+          opacity: isFocused ? 1 : 0.4,
         }
       };
     });
@@ -556,9 +618,8 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
         ...edge,
         style: {
           ...(edge.style || {}),
-          opacity: isFocused ? 1 : 0.1,
+          opacity: isFocused ? 1 : 0.3,
           strokeWidth: isHovered ? 3 : (edge.style as { strokeWidth?: number })?.strokeWidth,
-          stroke: isHovered ? '#111827' : (edge.style as { stroke?: string })?.stroke
         }
       };
     });
@@ -586,74 +647,63 @@ export const GraphView = ({ graph }: { graph: CodeGraph }) => {
     return null;
   }, [folderNodes, graph.files, graph.functions, selectedNode, selectedNodeId]);
 
+  const handleResetView = useCallback(() => {
+
+    if (rfInstance) {
+      rfInstance.fitView({ duration: 800 });
+    }
+  }, [rfInstance]);
+
   return (
-    <div style={{ width: '100%', height: '800px', border: '1px solid #ccc', marginTop: '20px', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
-      <ReactFlow
-        nodes={displayNodes}
-        edges={displayEdges}
-        fitView
-        minZoom={0.1}
-        onInit={setRfInstance}
-        onNodeClick={handleNodeClick}
-        onNodeDoubleClick={handleNodeDoubleClick}
-        onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
-        onNodeMouseLeave={() => setHoveredNodeId(null)}
-      >
-        <Background gap={20} color="#f1f1f1" />
-        <Controls />
-        <MiniMap nodeStrokeColor="#999" nodeColor="#ccc" nodeBorderRadius={5} />
-      </ReactFlow>
-      <div style={{ position: 'absolute', left: 16, top: 16, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ background: '#111827', color: '#fff', padding: '8px 12px', borderRadius: '8px', fontSize: '12px' }}>
-          {selectedBreadcrumbs.length > 0 ? selectedBreadcrumbs.join(" / ") : "Select a node"}
-        </div>
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', fontSize: '12px' }}>
-          <div style={{ fontWeight: 600, marginBottom: '6px' }}>Focus Mode</div>
-          <button onClick={() => setFocusMode((prev) => !prev)}>
-            {focusMode ? "Disable Focus" : "Enable Focus"}
-          </button>
-          <button
-            style={{ marginLeft: '8px' }}
-            onClick={() => {
-              if (rfInstance && selectedNodeId) {
-                rfInstance.fitView({ nodes: displayNodes.filter((node) => node.id === selectedNodeId) });
-              }
-            }}
-          >
-            Zoom to Selection
-          </button>
-        </div>
+    <div className="h-full w-full flex flex-col bg-[#050816] z-0 overflow-hidden">
+
+
+      <div className="z-10">
+        <BreadcrumbNav 
+          breadcrumbs={selectedBreadcrumbs} 
+          onResetView={handleResetView}
+          onBack={() => {
+            console.log("Back clicked");
+          }}
+          onLayoutChange={(layout: string) => {
+            console.log("Layout change:", layout);
+          }}
+        />
       </div>
-      {selectedNode && (
-        <div style={{ position: 'absolute', right: 16, top: 16, width: '280px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px', fontSize: '12px' }}>
-          <div style={{ fontWeight: 700, marginBottom: '6px' }}>Selected Node</div>
-          <div style={{ color: '#6b7280', marginBottom: '6px' }}>{selectedNode.type.toUpperCase()}</div>
-          {selectedMeta && (
-            <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontWeight: 600 }}>{selectedMeta.label}</div>
-              {selectedNode.type === "folder" && <div>Files: {selectedMeta.count}</div>}
-              {selectedNode.type === "file" && (
-                <div>Functions: {selectedMeta.count} • Imports: {selectedMeta.imports}</div>
-              )}
-              {selectedNode.type === "function" && (
-                <div>Params: {selectedMeta.params} • Calls: {selectedMeta.count}</div>
-              )}
-            </div>
-          )}
-          <button
-            onClick={() => collapseNode(selectedNode.id, selectedNode.type)}
-            style={{ marginTop: '6px' }}
-          >
-            Collapse
-          </button>
-          {hoveredNodeId && <div style={{ marginTop: '6px', color: '#6b7280' }}>Hovering: {hoveredNodeId}</div>}
-        </div>
-      )}
-      {loadingNodeId && (
-        <div style={{ position: 'absolute', right: 20, top: 20, background: '#111827', color: '#fff', padding: '6px 10px', borderRadius: '6px' }}>
-          Loading...
-        </div>
-      )}
+
+      
+      <div className="flex-1 relative overflow-hidden border-t border-white/5">
+        <ReactFlow
+          nodes={displayNodes}
+          edges={displayEdges}
+          nodeTypes={NODE_TYPES}
+          fitView
+          minZoom={0.01}
+          maxZoom={4}
+          onInit={setRfInstance}
+          onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
+          onNodeMouseEnter={(_, node) => setHoveredNodeId(node.id)}
+          onNodeMouseLeave={() => setHoveredNodeId(null)}
+        >
+
+
+          <Background gap={24} color="rgba(255, 255, 255, 0.05)" style={{ backgroundColor: '#050816' }} />
+          <Controls className="bg-slate-900/80 backdrop-blur-md border border-slate-700 fill-slate-300" />
+          <MiniMap 
+            nodeColor="rgba(0, 200, 255, 0.2)" 
+            maskColor="rgba(5, 8, 22, 0.8)" 
+            style={{ backgroundColor: 'rgba(5, 8, 22, 0.9)', border: '1px solid rgba(0, 200, 255, 0.2)' }} 
+          />
+        </ReactFlow>
+
+        {loadingNodeId && (
+          <div className="absolute right-6 top-6 px-3 py-1.5 bg-blue-600/20 border border-blue-500/30 text-blue-400 text-[10px] font-bold rounded-full backdrop-blur-md animate-pulse">
+            UPDATING GRAPH...
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+

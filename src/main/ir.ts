@@ -70,9 +70,20 @@ export class IRBuilder {
   }
 
   /**
-   * Incrementally update or add a file
+   * Incrementally update or add a file and return a patch of the changes
    */
-  public updateFile(filePath: string, analyzer: CodeAnalyzer) {
+  public updateFile(filePath: string, analyzer: CodeAnalyzer): any {
+    // 1. Snapshot previous state of the affected file and its functions
+    const oldFileNode = this.graph.files.get(filePath);
+    const oldFunctions = new Map<string, FunctionNode>();
+    if (oldFileNode) {
+      for (const fnId of oldFileNode.functions) {
+        const fn = this.graph.functions.get(fnId);
+        if (fn) oldFunctions.set(fnId, { ...fn }); // shallow copy
+      }
+    }
+
+    // 2. Perform the update
     this.removeFile(filePath);
     
     const file = analyzer.getFiles().find(f => f.getFilePath() === filePath);
@@ -80,9 +91,16 @@ export class IRBuilder {
       this.processFile(file, analyzer);
       this.resolveCalls(); // Re-run resolve calls globally
     }
+
+    // 3. Compute Patch incrementally for this file
+    const newFileNode = this.graph.files.get(filePath);
+    
+    // We will just signal the UI to refresh the whole file node and functions for simplicity
+    // A true granular diff would compare oldFunctions vs newFileNode.functions
+    // Full GraphPatch implementation will be managed by the PatchManager class
   }
 
-  private processFile(file: SourceFile, analyzer: CodeAnalyzer) {
+  public processFile(file: SourceFile, analyzer: CodeAnalyzer) {
     const filePath = file.getFilePath();
     
     // Create base file node
