@@ -14,10 +14,46 @@ const App = () => {
 
   useEffect(() => {
     // Listen for graph updates broadcasted by main process (watcher)
-    window.api.onGraphUpdated((newGraph: any) => {
-      console.log("Live Updated Graph:", newGraph);
-      setGraph(newGraph);
-      setStatus(`Watcher updated graph`);
+    window.api.onGraphUpdated((updateEvent: any) => {
+      if (updateEvent?.type === 'PATCH') {
+        const patch = updateEvent.patch;
+        console.log("Live Updated Patch:", patch);
+        
+        setGraph((prev: any) => {
+          if (!prev) return prev;
+          
+          // Shallow copy to break reference and trigger react re-render
+          const next = {
+            functions: { ...prev.functions },
+            files: { ...prev.files }
+          };
+          
+          // Apply added & updated nodes
+          patch.addedNodes.concat(patch.updatedNodes).forEach((node: any) => {
+            if (node.type === "file") {
+              next.files[node.id] = { ...next.files[node.id], ...node };
+            } else if (node.type === "function") {
+              next.functions[node.id] = { ...next.functions[node.id], ...node };
+            }
+          });
+          
+          // Apply removed nodes
+          patch.removedNodes.forEach((id: string) => {
+            delete next.files[id];
+            delete next.functions[id];
+          });
+          
+          return next;
+        });
+      } else {
+        // Fallback for full snapshot - ensure it has data
+        if (updateEvent && updateEvent.files) {
+          console.log("Live Updated Full Snapshot:", updateEvent);
+          setGraph(updateEvent);
+        }
+      }
+      
+      setStatus(`Watcher applied incremental patch`);
       setLastScan(new Date().toLocaleTimeString());
     });
   }, []);
@@ -62,7 +98,7 @@ const App = () => {
         projectStatus={status} 
       />
       
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         <Sidebar graph={graph} onNodeSelect={(node) => {
           setSelectedNode(node);
           if (node.id) {
@@ -70,9 +106,11 @@ const App = () => {
           }
         }} />
         
-        <div className="flex-1 relative bg-[#0b1020]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#0b1020] relative">
           {graph ? (
-            <GraphView graph={graph} onNodeSelect={setSelectedNode} />
+            <div className="absolute inset-0">
+              <GraphView graph={graph} onNodeSelect={setSelectedNode} />
+            </div>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center flex-col text-zinc-500">
               <div className="w-16 h-16 rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center mb-4">

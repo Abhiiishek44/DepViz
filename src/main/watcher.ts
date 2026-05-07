@@ -30,8 +30,19 @@ export class CodeWatcher {
       .on("unlink", (path: string) => this.handleFileChange(path, "unlink"));
   }
 
+  private pendingUpdateTimeout: NodeJS.Timeout | null = null;
+  private lastGraphSnapshot: ReturnType<IRBuilder['getRawGraph']> | null = null;
+
   private handleFileChange(filePath: string, type: "add" | "change" | "unlink") {
     console.log(`[Watcher] File ${type}: ${filePath}`);
+    
+    // Store snapshot before mutation if we don't have one
+    if (!this.lastGraphSnapshot) {
+      this.lastGraphSnapshot = {
+        functions: new Map(this.builder.getRawGraph().functions),
+        files: new Map(this.builder.getRawGraph().files)
+      };
+    }
     
     // Let ts-morph know
     if (type === "unlink") {
@@ -42,14 +53,32 @@ export class CodeWatcher {
       this.builder.updateFile(filePath, this.analyzer);
     }
 
-    // Ping renderer with updated graph (Step 7 mechanism)
-    this.onGraphUpdated({
-      functions: Object.fromEntries(this.builder.getRawGraph().functions),
-      files: Object.fromEntries(this.builder.getRawGraph().files)
-    });
+    if (this.pendingUpdateTimeout) {
+      clearTimeout(this.pendingUpdateTimeout);
+    }
+
+    this.pendingUpdateTimeout = setTimeout(async () => {
+      // Calculate diff dynamically and emit
+      if (this.lastGraphSnapshot) {
+        // dynamic import to avoid circular dependency
+        const { computeGraphPatch } = await import("./patchManager");
+        const patch = computeGraphPatch(this.lastGraphSnapshot, this.builder.getRawGraph());
+        
+        // Ping renderer with the PATCH
+        this.onGraphUpdated({
+          type: 'PATCH',
+          timestamp: Date.now(),
+          patch
+        });
+      }
+
+      this.pendingUpdateTimeout = null;
+      this.lastGraphSnapshot = null; // Clear snapshot to start fresh for next batch
+    }, 300);
   }
 
   public stop() {
+    if (this.pendingUpdateTimeout) clearTimeout(this.pendingUpdateTimeout);
     this.watcher?.close();
   }
 }
