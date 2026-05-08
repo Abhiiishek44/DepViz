@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { setupIpcHandlers } from "./ipc";
+import { setupIpcHandlers } from "./ipc/setupIpcHandlers";
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({

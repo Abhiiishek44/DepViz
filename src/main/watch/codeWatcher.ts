@@ -1,14 +1,18 @@
 import chokidar from "chokidar";
-import { CodeAnalyzer } from "./analyzer";
-import { IRBuilder } from "./ir";
+import { CodeAnalyzer } from "../analysis/codeAnalyzer";
+import { computeGraphPatch } from "../analysis/graphPatch";
+import { IRBuilder } from "../analysis/irBuilder";
+import { CodeGraph } from "../analysis/types";
 
 export class CodeWatcher {
   private watcher: chokidar.FSWatcher | null = null;
+  private pendingUpdateTimeout: NodeJS.Timeout | null = null;
+  private lastGraphSnapshot: CodeGraph | null = null;
 
   constructor(
     private analyzer: CodeAnalyzer,
     private builder: IRBuilder,
-    private onGraphUpdated: (graph: any) => void
+    private onGraphUpdated: (graph: unknown) => void
   ) {}
 
   public watch(folderPath: string) {
@@ -17,11 +21,11 @@ export class CodeWatcher {
     }
 
     console.log(`[Watcher] Starting watch on ${folderPath}/**/*.ts|js`);
-    
+
     this.watcher = chokidar.watch(`${folderPath}/**/*.{ts,tsx,js,jsx}`, {
       ignored: /(node_modules|\.git|dist|build)/,
       persistent: true,
-      ignoreInitial: true // we do an initial pass before watching
+      ignoreInitial: true
     });
 
     this.watcher
@@ -30,21 +34,21 @@ export class CodeWatcher {
       .on("unlink", (path: string) => this.handleFileChange(path, "unlink"));
   }
 
-  private pendingUpdateTimeout: NodeJS.Timeout | null = null;
-  private lastGraphSnapshot: ReturnType<IRBuilder['getRawGraph']> | null = null;
+  public stop() {
+    if (this.pendingUpdateTimeout) clearTimeout(this.pendingUpdateTimeout);
+    this.watcher?.close();
+  }
 
   private handleFileChange(filePath: string, type: "add" | "change" | "unlink") {
     console.log(`[Watcher] File ${type}: ${filePath}`);
-    
-    // Store snapshot before mutation if we don't have one
+
     if (!this.lastGraphSnapshot) {
       this.lastGraphSnapshot = {
         functions: new Map(this.builder.getRawGraph().functions),
         files: new Map(this.builder.getRawGraph().files)
       };
     }
-    
-    // Let ts-morph know
+
     if (type === "unlink") {
       this.analyzer.removeFile(filePath);
       this.builder.removeFile(filePath);
@@ -57,28 +61,21 @@ export class CodeWatcher {
       clearTimeout(this.pendingUpdateTimeout);
     }
 
-    this.pendingUpdateTimeout = setTimeout(async () => {
-      // Calculate diff dynamically and emit
-      if (this.lastGraphSnapshot) {
-        // dynamic import to avoid circular dependency
-        const { computeGraphPatch } = await import("./patchManager");
-        const patch = computeGraphPatch(this.lastGraphSnapshot, this.builder.getRawGraph());
-        
-        // Ping renderer with the PATCH
-        this.onGraphUpdated({
-          type: 'PATCH',
-          timestamp: Date.now(),
-          patch
-        });
-      }
-
-      this.pendingUpdateTimeout = null;
-      this.lastGraphSnapshot = null; // Clear snapshot to start fresh for next batch
-    }, 300);
+    this.pendingUpdateTimeout = setTimeout(() => this.flushPatch(), 300);
   }
 
-  public stop() {
-    if (this.pendingUpdateTimeout) clearTimeout(this.pendingUpdateTimeout);
-    this.watcher?.close();
+  private flushPatch() {
+    if (this.lastGraphSnapshot) {
+      const patch = computeGraphPatch(this.lastGraphSnapshot, this.builder.getRawGraph());
+
+      this.onGraphUpdated({
+        type: "PATCH",
+        timestamp: Date.now(),
+        patch
+      });
+    }
+
+    this.pendingUpdateTimeout = null;
+    this.lastGraphSnapshot = null;
   }
 }
