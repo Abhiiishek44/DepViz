@@ -1,0 +1,238 @@
+{
+  "project": {
+    "name": "cv",
+    "type": "desktop",
+    "framework": [
+      "Electron"
+    ],
+    "entry": "postcss.config.js"
+  },
+  "layers": [
+    "API",
+    "CORE",
+    "DATA",
+    "UI"
+  ],
+  "modules": [
+    {
+      "id": "root",
+      "name": "Root",
+      "type": "module",
+      "layer": "CORE",
+      "description": "Application entry",
+      "importance": "high"
+    },
+    {
+      "id": "renderer",
+      "name": "Renderer",
+      "type": "module",
+      "layer": "UI",
+      "description": "Renderer process",
+      "importance": "high"
+    },
+    {
+      "id": "analysis",
+      "name": "Analysis",
+      "type": "module",
+      "layer": "CORE",
+      "description": "Code analysis engine",
+      "importance": "high"
+    },
+    {
+      "id": "persistence",
+      "name": "Persistence",
+      "type": "module",
+      "layer": "CORE",
+      "description": "Data persistence",
+      "importance": "high"
+    },
+    {
+      "id": "shared",
+      "name": "Shared",
+      "type": "module",
+      "layer": "CORE",
+      "description": "Shared utilities and configuration",
+      "importance": "high"
+    }
+  ],
+  "services": [
+    {
+      "id": "codeAnalyzer",
+      "name": "Code Analyzer",
+      "layer": "CORE",
+      "responsibility": "Code analysis",
+      "importance": "medium"
+    },
+    {
+      "id": "graphVersionManager",
+      "name": "Graph Version Manager",
+      "layer": "CORE",
+      "responsibility": "Graph analysis",
+      "importance": "medium"
+    },
+    {
+      "id": "irBuilder",
+      "name": "Ir Builder",
+      "layer": "UI",
+      "responsibility": "Build pipeline",
+      "importance": "medium"
+    },
+    {
+      "id": "setupIpcHandlers",
+      "name": "Setup Ipc Handlers",
+      "layer": "API",
+      "responsibility": "Setup Ipc Handlers management",
+      "importance": "high"
+    },
+    {
+      "id": "graphRepository",
+      "name": "Graph Repository",
+      "layer": "DATA",
+      "responsibility": "Data access",
+      "importance": "high"
+    },
+    {
+      "id": "graphBuilders",
+      "name": "Graph Builders",
+      "layer": "UI",
+      "responsibility": "Graph analysis",
+      "importance": "medium"
+    }
+  ],
+  "routes": [],
+  "database": {
+    "type": "none",
+    "models": [
+      "Project Model"
+    ]
+  },
+  "auth": {
+    "type": "none"
+  },
+  "externalApis": [],
+  "flows": [
+    {
+      "from": "CORE",
+      "to": "UI",
+      "type": "depends"
+    },
+    {
+      "from": "CORE",
+      "to": "API",
+      "type": "depends"
+    },
+    {
+      "from": "UI",
+      "to": "CORE",
+      "type": "depends"
+    },
+    {
+      "from": "API",
+      "to": "CORE",
+      "type": "depends"
+    },
+    {
+      "from": "API",
+      "to": "UI",
+      "type": "depends"
+    },
+    {
+      "from": "UI",
+      "to": "DATA",
+      "type": "depends"
+    },
+    {
+      "from": "DATA",
+      "to": "UI",
+      "type": "depends"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "mod:root",
+      "name": "Root",
+      "type": "module",
+      "layer": "CORE",
+      "importance": "high"
+    },
+    {
+      "id": "mod:renderer",
+      "name": "Renderer",
+      "type": "module",
+      "layer": "UI",
+      "importance": "high"
+    },
+    {
+      "id": "mod:analysis",
+      "name": "Analysis",
+      "type": "module",
+      "layer": "CORE",
+      "importance": "high"
+    },
+    {
+      "id": "mod:persistence",
+      "name": "Persistence",
+      "type": "module",
+      "layer": "CORE",
+      "importance": "high"
+    },
+    {
+      "id": "mod:shared",
+      "name": "Shared",
+      "type": "module",
+      "layer": "CORE",
+      "importance": "high"
+    },
+    {
+      "id": "svc:setupIpcHandlers",
+      "name": "Setup Ipc Handlers",
+      "type": "service",
+      "layer": "API",
+      "importance": "high"
+    },
+    {
+      "id": "svc:graphRepository",
+      "name": "Graph Repository",
+      "type": "service",
+      "layer": "DATA",
+      "importance": "high"
+    }
+  ],
+  "edges": [
+    {
+      "source": "CORE",
+      "target": "UI",
+      "label": "depends"
+    },
+    {
+      "source": "CORE",
+      "target": "API",
+      "label": "depends"
+    },
+    {
+      "source": "UI",
+      "target": "CORE",
+      "label": "depends"
+    },
+    {
+      "source": "API",
+      "target": "CORE",
+      "label": "depends"
+    },
+    {
+      "source": "API",
+      "target": "UI",
+      "label": "depends"
+    },
+    {
+      "source": "UI",
+      "target": "DATA",
+      "label": "depends"
+    },
+    {
+      "source": "DATA",
+      "target": "UI",
+      "label": "depends"
+    }
+  ]
+}
