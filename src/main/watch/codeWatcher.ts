@@ -1,6 +1,7 @@
 import chokidar from "chokidar";
 import { CodeAnalyzer } from "../analysis/codeAnalyzer";
 import { computeGraphPatch } from "../analysis/graphPatch";
+import { GraphVersionManager } from "../analysis/graphVersionManager";
 import { IRBuilder } from "../analysis/irBuilder";
 import { CodeGraph } from "../analysis/types";
 
@@ -8,17 +9,20 @@ export class CodeWatcher {
   private watcher: chokidar.FSWatcher | null = null;
   private pendingUpdateTimeout: NodeJS.Timeout | null = null;
   private lastGraphSnapshot: CodeGraph | null = null;
+  private versionManager = new GraphVersionManager();
 
   constructor(
     private analyzer: CodeAnalyzer,
     private builder: IRBuilder,
     private onGraphUpdated: (graph: unknown) => void
-  ) {}
+  ) {}    
 
   public watch(folderPath: string) {
     if (this.watcher) {
       this.watcher.close();
     }
+
+    this.versionManager.reset();
 
     console.log(`[Watcher] Starting watch on ${folderPath}/**/*.ts|js`);
 
@@ -66,7 +70,9 @@ export class CodeWatcher {
 
   private flushPatch() {
     if (this.lastGraphSnapshot) {
-      const patch = computeGraphPatch(this.lastGraphSnapshot, this.builder.getRawGraph());
+      const patch = computeGraphPatch(this.lastGraphSnapshot, this.builder.getRawGraph(), {
+        versionManager: this.versionManager
+      });
 
       this.onGraphUpdated({
         type: "PATCH",

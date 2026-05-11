@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { GraphPatch, NodeMetadata } from "../../shared/protocol";
+import { GraphPatch, GraphSyncEvent, NodeMetadata } from "../../shared/protocol";
 import { CodeGraph } from "../features/graph/types/graphTypes";
 
-type GraphUpdateEvent =
-  | { type: "PATCH"; timestamp: number; patch: GraphPatch }
-  | CodeGraph;
+type GraphUpdateEvent = GraphSyncEvent | CodeGraph;
 
 export const useProjectGraph = () => {
   const [status, setStatus] = useState("Idle");
@@ -17,6 +15,9 @@ export const useProjectGraph = () => {
       if ("type" in updateEvent && updateEvent.type === "PATCH") {
         console.log("Live Updated Patch:", updateEvent.patch);
         setGraph((prev) => applyGraphPatch(prev, updateEvent.patch));
+      } else if ("type" in updateEvent && updateEvent.type === "SNAPSHOT") {
+        console.log("Live Updated Snapshot:", updateEvent.payload);
+        setGraph(buildGraphFromSnapshot(updateEvent.payload.nodes));
       } else if (updateEvent && "files" in updateEvent) {
         console.log("Live Updated Full Snapshot:", updateEvent);
         setGraph(updateEvent);
@@ -74,9 +75,9 @@ const applyGraphPatch = (graph: CodeGraph | null, patch: GraphPatch) => {
     files: { ...graph.files }
   };
 
-  patch.addedNodes.concat(patch.updatedNodes).forEach((node) => applyNodePatch(next, node));
+  patch.nodes.added.concat(patch.nodes.updated).forEach((node) => applyNodePatch(next, node));
 
-  patch.removedNodes.forEach((id) => {
+  patch.nodes.removed.forEach((id) => {
     delete next.files[id];
     delete next.functions[id];
   });
@@ -103,4 +104,14 @@ const applyNodePatch = (graph: CodeGraph, node: NodeMetadata) => {
       calls: node.calls || []
     };
   }
+};
+
+const buildGraphFromSnapshot = (nodes: NodeMetadata[]): CodeGraph => {
+  const graph: CodeGraph = { functions: {}, files: {} };
+
+  nodes.forEach((node) => {
+    applyNodePatch(graph, node);
+  });
+
+  return graph;
 };

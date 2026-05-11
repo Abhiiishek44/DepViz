@@ -1,41 +1,101 @@
-import { EdgeMetadata, GraphPatch, NodeMetadata } from "../../shared/protocol";
+import {
+  EdgeMetadata,
+  GraphEdgeType,
+  GraphPatch,
+  GraphSnapshot,
+  NodeMetadata
+} from "../../shared/protocol";
+import { diffEdges } from "./diffEdges";
+import { diffNodes } from "./diffNodes";
+import { GraphVersionManager } from "./graphVersionManager";
 import { CodeGraph, FileNode, FunctionNode } from "./types";
 
-export function computeGraphPatch(oldGraph: CodeGraph, newGraph: CodeGraph): GraphPatch {
-  const patch: GraphPatch = {
-    addedNodes: [],
-    updatedNodes: [],
-    removedNodes: [],
-    addedEdges: [],
-    removedEdges: []
-  };
+type PatchOptions = {
+  versionManager?: GraphVersionManager;
+  baseVersion?: number;
+  batchId?: string;
+  transactionId?: string;
+};
 
-  diffNodes(oldGraph.files, newGraph.files, patch, fileToNode);
-  diffNodes(oldGraph.functions, newGraph.functions, patch, fnToNode);
+export function computeGraphPatch(
+  oldGraph: CodeGraph,
+  newGraph: CodeGraph,
+  options: PatchOptions = {}
+): GraphPatch {
+  const versionManager = options.versionManager ?? new GraphVersionManager();
+  const baseVersion = options.baseVersion ?? versionManager.getVersion();
 
-  return patch;
+  const oldNodes = buildNodeIndex(oldGraph);
+  const newNodes = buildNodeIndex(newGraph);
+  const oldEdges = buildEdgeIndex(oldGraph);
+  const newEdges = buildEdgeIndex(newGraph);
+
+  const nodeDiff = diffNodes(oldNodes, newNodes, {
+    previousHashes: versionManager.getHashState().nodeHashes
+  });
+  const edgeDiff = diffEdges(oldEdges, newEdges, {
+    previousHashes: versionManager.getHashState().edgeHashes
+  });
+
+  versionManager.updateHashes({
+    nodeHashes: nodeDiff.nextHashes,
+    edgeHashes: edgeDiff.nextHashes
+  });
+
+  return versionManager.createPatch(baseVersion, nodeDiff.delta, edgeDiff.delta, {
+    batchId: options.batchId,
+    transactionId: options.transactionId
+  });
 }
 
-function diffNodes<T extends FileNode | FunctionNode>(
-  oldNodes: Map<string, T>,
-  newNodes: Map<string, T>,
-  patch: GraphPatch,
-  toMetadata: (node: T) => NodeMetadata
-) {
-  for (const [id, newNode] of newNodes.entries()) {
-    const oldNode = oldNodes.get(id);
-    if (!oldNode) {
-      patch.addedNodes.push(toMetadata(newNode));
-    } else if (JSON.stringify(oldNode) !== JSON.stringify(newNode)) {
-      patch.updatedNodes.push(toMetadata(newNode));
+export function buildGraphSnapshot(
+  graph: CodeGraph,
+  versionManager: GraphVersionManager = new GraphVersionManager(),
+  options: Omit<PatchOptions, "versionManager" | "baseVersion"> = {}
+): GraphSnapshot {
+  const nodes = Array.from(buildNodeIndex(graph).values());
+  const edges = Array.from(buildEdgeIndex(graph).values());
+
+  return versionManager.createSnapshot(nodes, edges, {
+    batchId: options.batchId,
+    transactionId: options.transactionId
+  });
+}
+
+export function buildNodeIndex(graph: CodeGraph): Map<string, NodeMetadata> {
+  const index = new Map<string, NodeMetadata>();
+
+  for (const file of graph.files.values()) {
+    index.set(file.id, fileToNode(file));
+  }
+
+  for (const fn of graph.functions.values()) {
+    index.set(fn.id, fnToNode(fn));
+  }
+
+  return index;
+}
+
+export function buildEdgeIndex(graph: CodeGraph): Map<string, EdgeMetadata> {
+  const edges = new Map<string, EdgeMetadata>();
+
+  for (const file of graph.files.values()) {
+    for (const importTarget of file.imports) {
+      addEdge(edges, toEdgeMetadata(file.id, importTarget, "IMPORTS"));
+    }
+
+    for (const fnId of file.functions) {
+      addEdge(edges, toEdgeMetadata(file.id, fnId, "DECLARES"));
     }
   }
 
-  for (const id of oldNodes.keys()) {
-    if (!newNodes.has(id)) {
-      patch.removedNodes.push(id);
+  for (const fn of graph.functions.values()) {
+    for (const callTarget of fn.calls) {
+      addEdge(edges, toEdgeMetadata(fn.id, callTarget, "CALLS"));
     }
   }
+
+  return edges;
 }
 
 function fileToNode(file: FileNode): NodeMetadata {
@@ -60,11 +120,15 @@ function fnToNode(fn: FunctionNode): NodeMetadata {
   };
 }
 
-export function createEdgeId(source: string, target: string, type = "call") {
+export function createEdgeId(source: string, target: string, type: GraphEdgeType = "CALLS") {
   return `${type}:${source}->${target}`;
 }
 
-export function toEdgeMetadata(source: string, target: string, type = "call"): EdgeMetadata {
+export function toEdgeMetadata(
+  source: string,
+  target: string,
+  type: GraphEdgeType = "CALLS"
+): EdgeMetadata {
   return {
     id: createEdgeId(source, target, type),
     source,
@@ -72,3 +136,9 @@ export function toEdgeMetadata(source: string, target: string, type = "call"): E
     type
   };
 }
+
+const addEdge = (edges: Map<string, EdgeMetadata>, edge: EdgeMetadata) => {
+  if (!edges.has(edge.id)) {
+    edges.set(edge.id, edge);
+  }
+};
