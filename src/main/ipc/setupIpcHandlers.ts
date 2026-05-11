@@ -1,4 +1,5 @@
 import { dialog, ipcMain, WebContents } from "electron";
+import { ArchitectureExtractor } from "../analysis/architectureExtractor";
 import { CodeAnalyzer } from "../analysis/codeAnalyzer";
 import { IRBuilder } from "../analysis/irBuilder";
 import { CodeWatcher } from "../watch/codeWatcher";
@@ -7,6 +8,7 @@ export const setupIpcHandlers = (webContents?: WebContents) => {
   const analyzer = new CodeAnalyzer();
   const builder = new IRBuilder();
   let currentGraph: unknown = { functions: {}, files: {} };
+  let currentProjectPath = "";
 
   const watcher = new CodeWatcher(analyzer, builder, (updatedGraph) => {
     currentGraph = updatedGraph;
@@ -28,6 +30,7 @@ export const setupIpcHandlers = (webContents?: WebContents) => {
   ipcMain.handle("load-project", async (_event, folderPath: string) => {
     console.log(`[IPC] Loading project from: ${folderPath}`);
 
+    currentProjectPath = folderPath;
     analyzer.loadProject(folderPath);
     const graph = builder.buildIR(analyzer);
 
@@ -42,6 +45,18 @@ export const setupIpcHandlers = (webContents?: WebContents) => {
       success: true,
       message: `Built IR Graph. Found ${graph.files.size} files and ${graph.functions.size} functions. Watching for changes.`
     };
+  });
+
+  ipcMain.handle("extract-architecture", async () => {
+    console.log("[IPC] Extracting architecture...");
+    const raw = builder.getRawGraph();
+
+    if (raw.files.size === 0) {
+      return { error: "No project loaded. Load a project first." };
+    }
+
+    const extractor = new ArchitectureExtractor(raw, currentProjectPath);
+    return extractor.extract();
   });
 
   ipcMain.handle("get-graph", async () => {
