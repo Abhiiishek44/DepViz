@@ -1,29 +1,36 @@
-import * as path from 'path';
-import * as fs from 'fs';
-import { CodeAnalyzer } from '../src/main/analysis/codeAnalyzer';
-import { IRBuilder } from '../src/main/analysis/irBuilder';
-import { ArchitectureExtractor } from '../src/main/analysis/architectureExtractor';
+import path from "node:path";
+import { ArchitectureExtractor } from "../src/main/analysis/architectureExtractor";
+import { CodeAnalyzer } from "../src/main/analysis/codeAnalyzer";
+import { IRBuilder } from "../src/main/analysis/irBuilder";
+import { writeArchitectureJson } from "../src/main/analysis/architectureWriter";
 
-async function run() {
-  const projectPath = path.resolve('/home/abhishek/voxora/apps');
-  console.log(`Analyzing project at: ${projectPath}`);
+const run = async () => {
+  const projectPath = process.argv[2] ? path.resolve(process.argv[2]) : process.cwd();
 
-  const analyzer = new CodeAnalyzer();
-  analyzer.loadProject(projectPath);
+  try {
+    const analyzer = new CodeAnalyzer();
+    const builder = new IRBuilder();
 
-  const builder = new IRBuilder();
-  const graph = builder.buildIR(analyzer);
+    analyzer.loadProject(projectPath);
+    const graph = builder.buildIR(analyzer);
 
-  const extractor = new ArchitectureExtractor(graph, projectPath);
-  const archJson = extractor.extract();
+    if (graph.files.size === 0) {
+      throw new Error("No source files found to analyze.");
+    }
 
-  const outputPath = path.resolve(projectPath, 'architecture.json');
-  fs.writeFileSync(outputPath, JSON.stringify(archJson, null, 2));
+    const extractor = new ArchitectureExtractor(graph, projectPath);
+    const architecture = extractor.extract();
 
-  console.log(`Architecture JSON written to: ${outputPath}`);
-}
+    await writeArchitectureJson(architecture, { outputDir: process.cwd() });
 
-run().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+    console.log(
+      `[ArchitectureExtractor] Extraction complete. Files: ${graph.files.size}, Functions: ${graph.functions.size}`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[ArchitectureExtractor] Extraction failed: ${message}`);
+    process.exitCode = 1;
+  }
+};
+
+void run();
