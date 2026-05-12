@@ -2,9 +2,9 @@
   "name": "code-graph-mvp",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/main/index.js",
+  "main": "dist/main/main/index.js",
   "scripts": {
-    "build:main": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json",
+  "build:main": "rm -rf dist/main && tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json",
     "dev": "npm run build:main && concurrently -k \"vite\" \"wait-on http://localhost:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron . --no-sandbox\"",
     "build": "npm run build:main && vite build",
     "start": "electron . --no-sandbox",

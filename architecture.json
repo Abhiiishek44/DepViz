@@ -1,238 +1,871 @@
 {
-  "project": {
-    "name": "cv",
-    "type": "desktop",
-    "framework": [
-      "Electron"
-    ],
-    "entry": "postcss.config.js"
+  "system": {
+    "architectureStyle": "Modular Monolith",
+    "primaryPurpose": "Application platform",
+    "executionModel": "Request Response",
+    "communicationPattern": "REST API",
+    "runtime": "Node.js",
+    "frontend": "Unknown",
+    "backend": "Express",
+    "database": "MongoDB"
   },
-  "layers": [
-    "API",
-    "CORE",
-    "DATA",
-    "UI"
-  ],
-  "modules": [
+  "domains": [
     {
-      "id": "root",
-      "name": "Root",
-      "type": "module",
-      "layer": "CORE",
-      "description": "Application entry",
-      "importance": "high"
+      "name": "Authentication",
+      "responsibility": "User authentication and authorization",
+      "services": [
+        "Auth Controller",
+        "Auth Routes",
+        "Auth Schema",
+        "Auth Service",
+        "Auth Model"
+      ]
     },
     {
-      "id": "renderer",
-      "name": "Renderer",
-      "type": "module",
-      "layer": "UI",
-      "description": "Renderer process",
-      "importance": "high"
+      "name": "Core",
+      "responsibility": "Core business logic",
+      "services": [
+        "Channel Routes",
+        "Channel Service",
+        "Membership Controller",
+        "Membership Schema",
+        "Membership Service",
+        "Channel Member Model",
+        "Channel Model",
+        "Membership Model",
+        "Workspace Model",
+        "Workspace Controller",
+        "Workspace Routes",
+        "Workspace Schema",
+        "Workspace Service"
+      ]
     },
     {
-      "id": "analysis",
-      "name": "Analysis",
-      "type": "module",
-      "layer": "CORE",
-      "description": "Code analysis engine",
-      "importance": "high"
+      "name": "Persistence Layer",
+      "responsibility": "Data persistence and storage",
+      "services": [
+        "mongoose"
+      ]
     },
     {
-      "id": "persistence",
-      "name": "Persistence",
-      "type": "module",
-      "layer": "CORE",
-      "description": "Data persistence",
-      "importance": "high"
-    },
-    {
-      "id": "shared",
-      "name": "Shared",
-      "type": "module",
-      "layer": "CORE",
-      "description": "Shared utilities and configuration",
-      "importance": "high"
+      "name": "User Management",
+      "responsibility": "User profile and account management",
+      "services": [
+        "User Model",
+        "User Controller",
+        "User Routes",
+        "User Schema",
+        "User Service"
+      ]
     }
   ],
-  "services": [
+  "requestFlows": [
     {
-      "id": "codeAnalyzer",
-      "name": "Code Analyzer",
-      "layer": "CORE",
-      "responsibility": "Code analysis",
-      "importance": "medium"
+      "name": "Get User Profile",
+      "entry": "GET /user-profile",
+      "steps": [
+        "src_user_user_controller",
+        "src_user_user_service",
+        "src_model_user_model",
+        "database_mongoose",
+        "src_user_user_schema"
+      ]
     },
     {
-      "id": "graphVersionManager",
-      "name": "Graph Version Manager",
-      "layer": "CORE",
-      "responsibility": "Graph analysis",
-      "importance": "medium"
+      "name": "Create Workspace Handler",
+      "entry": "POST /workspace-handler",
+      "steps": [
+        "src_workspace_workspace_controller",
+        "src_workspace_workspace_service",
+        "src_model_workspace_model",
+        "database_mongoose",
+        "src_workspace_workspace_schema",
+        "src_membership_membership_service",
+        "src_model_membership_model"
+      ]
     },
     {
-      "id": "irBuilder",
-      "name": "Ir Builder",
-      "layer": "UI",
-      "responsibility": "Build pipeline",
-      "importance": "medium"
-    },
-    {
-      "id": "setupIpcHandlers",
-      "name": "Setup Ipc Handlers",
-      "layer": "API",
-      "responsibility": "Setup Ipc Handlers management",
-      "importance": "high"
-    },
-    {
-      "id": "graphRepository",
-      "name": "Graph Repository",
-      "layer": "DATA",
-      "responsibility": "Data access",
-      "importance": "high"
-    },
-    {
-      "id": "graphBuilders",
-      "name": "Graph Builders",
-      "layer": "UI",
-      "responsibility": "Graph analysis",
-      "importance": "medium"
+      "name": "Get Workspace Handler",
+      "entry": "GET /workspace-handler",
+      "steps": [
+        "src_workspace_workspace_controller",
+        "src_workspace_workspace_service",
+        "src_model_workspace_model",
+        "database_mongoose",
+        "src_workspace_workspace_schema",
+        "src_membership_membership_service",
+        "src_model_membership_model"
+      ]
     }
   ],
-  "routes": [],
-  "database": {
-    "type": "none",
-    "models": [
-      "Project Model"
+  "serviceGraph": {
+    "nodes": [
+      {
+        "id": "src_auth_auth_controller",
+        "name": "Auth Controller",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/auth/auth.controller.ts"
+      },
+      {
+        "id": "src_auth_auth_routes",
+        "name": "Auth Routes",
+        "kind": "api-route",
+        "layer": "infrastructure",
+        "filePath": "src/auth/auth.routes.ts"
+      },
+      {
+        "id": "src_auth_auth_schema",
+        "name": "Auth Schema",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/auth/auth.schema.ts"
+      },
+      {
+        "id": "src_auth_auth_service",
+        "name": "Auth Service",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/auth/auth.service.ts"
+      },
+      {
+        "id": "src_channel_channel_routes",
+        "name": "Channel Routes",
+        "kind": "api-route",
+        "layer": "infrastructure",
+        "filePath": "src/channel/channel.routes.ts"
+      },
+      {
+        "id": "src_channel_channel_service",
+        "name": "Channel Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/channel/channel.service.ts"
+      },
+      {
+        "id": "src_membership_membership_controller",
+        "name": "Membership Controller",
+        "kind": "controller",
+        "layer": "infrastructure",
+        "filePath": "src/membership/membership.controller.ts"
+      },
+      {
+        "id": "src_membership_membership_schema",
+        "name": "Membership Schema",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/membership/membership.schema.ts"
+      },
+      {
+        "id": "src_membership_membership_service",
+        "name": "Membership Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/membership/membership.service.ts"
+      },
+      {
+        "id": "src_model_auth_model",
+        "name": "Auth Model",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/model/auth.model.ts"
+      },
+      {
+        "id": "src_model_channel_member_model",
+        "name": "Channel Member Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/channel_member.model.ts"
+      },
+      {
+        "id": "src_model_channel_model",
+        "name": "Channel Model",
+        "kind": "model",
+        "layer": "insrc_model_membership_modelfrastructure",
+        "filePath": "src/model/channel.model.ts"
+      },
+      {
+        "id": "src_model_membership_model",
+        "name": "Membership Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/membership.model.ts"
+      },
+      {
+        "id": "src_model_user_model",
+        "name": "User Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/user.model.ts"
+      },
+      {
+        "id": "src_model_workspace_model",
+        "name": "Workspace Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/workspace.model.ts"
+      },
+      {
+        "id": "src_user_user_controller",
+        "name": "User Controller",
+        "kind": "controller",
+        "layer": "infrastructure",
+        "filePath": "src/user/user.controller.ts"
+      },
+      {
+        "id": "src_user_user_routes",
+        "name": "User Routes",
+        "kind": "api-route",
+        "layer": "infrastructure",
+        "filePath": "src/user/user.routes.ts"
+      },
+      {
+        "id": "src_user_user_schema",
+        "name": "User Schema",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/user/user.schema.ts"
+      },
+      {
+        "id": "src_user_user_service",
+        "name": "User Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/user/user.service.ts"
+      },
+      {
+        "id": "src_workspace_workspace_controller",
+        "name": "Workspace Controller",
+        "kind": "controller",
+        "layer": "infrastructure",
+        "filePath": "src/workspace/workspace.controller.ts"
+      },
+      {
+        "id": "src_workspace_workspace_routes",
+        "name": "Workspace Routes",
+        "kind": "api-route",
+        "layer": "infrastructure",
+        "filePath": "src/workspace/workspace.routes.ts"
+      },
+      {
+        "id": "src_workspace_workspace_schema",
+        "name": "Workspace Schema",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/workspace/workspace.schema.ts"
+      },
+      {
+        "id": "src_workspace_workspace_service",
+        "name": "Workspace Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/workspace/workspace.service.ts"
+      },
+      {
+        "id": "database_mongoose",
+        "name": "mongoose",
+        "kind": "database",
+        "layer": "persistence",
+        "filePath": ""
+      }
+    ],
+    "edges": [
+      {
+        "from": "src_auth_auth_controller",
+        "to": "src_auth_auth_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_membership_membership_controller",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_user_user_controller",
+        "to": "src_user_user_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_workspace_workspace_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_auth_auth_controller",
+        "to": "src_auth_auth_service",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_auth_auth_routes",
+        "to": "src_auth_auth_schema",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_auth_auth_routes",
+        "to": "src_auth_auth_controller",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_auth_auth_service",
+        "to": "src_model_auth_model",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_auth_auth_service",
+        "to": "src_auth_auth_schema",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_membership_membership_controller",
+        "to": "src_membership_membership_service",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_membership_membership_service",
+        "to": "src_model_membership_model",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_model_auth_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_channel_member_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_channel_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_membership_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_user_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_workspace_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_user_user_controller",
+        "to": "src_user_user_service",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_user_user_routes",
+        "to": "src_user_user_schema",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_user_user_routes",
+        "to": "src_user_user_controller",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_user_user_service",
+        "to": "src_model_user_model",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_user_user_service",
+        "to": "src_user_user_schema",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_workspace_workspace_service",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_membership_membership_service",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_routes",
+        "to": "src_workspace_workspace_controller",
+        "type": "depends",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_routes",
+        "to": "src_workspace_workspace_schema",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_workspace_workspace_service",
+        "to": "src_model_workspace_model",
+        "type": "depends",
+        "level": "implementation"
+      },
+      {
+        "from": "src_workspace_workspace_service",
+        "to": "src_workspace_workspace_schema",
+        "type": "depends",
+        "level": "implementation"
+      }
     ]
   },
-  "auth": {
-    "type": "none"
+  "runtimeGraph": {
+    "nodes": [
+      {
+        "id": "src_auth_auth_controller",
+        "name": "Auth Controller",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/auth/auth.controller.ts"
+      },
+      {
+        "id": "src_auth_auth_service",
+        "name": "Auth Service",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/auth/auth.service.ts"
+      },
+      {
+        "id": "src_membership_membership_controller",
+        "name": "Membership Controller",
+        "kind": "controller",
+        "layer": "infrastructure",
+        "filePath": "src/membership/membership.controller.ts"
+      },
+      {
+        "id": "src_membership_membership_service",
+        "name": "Membership Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/membership/membership.service.ts"
+      },
+      {
+        "id": "src_model_auth_model",
+        "name": "Auth Model",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/model/auth.model.ts"
+      },
+      {
+        "id": "src_model_channel_member_model",
+        "name": "Channel Member Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/channel_member.model.ts"
+      },
+      {
+        "id": "src_model_channel_model",
+        "name": "Channel Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/channel.model.ts"
+      },
+      {
+        "id": "src_model_membership_model",
+        "name": "Membership Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/membership.model.ts"
+      },
+      {
+        "id": "src_model_user_model",
+        "name": "User Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/user.model.ts"
+      },
+      {
+        "id": "src_model_workspace_model",
+        "name": "Workspace Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/workspace.model.ts"
+      },
+      {
+        "id": "src_user_user_controller",
+        "name": "User Controller",
+        "kind": "controller",
+        "layer": "infrastructure",
+        "filePath": "src/user/user.controller.ts"
+      },
+      {
+        "id": "src_user_user_service",
+        "name": "User Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/user/user.service.ts"
+      },
+      {
+        "id": "src_workspace_workspace_controller",
+        "name": "Workspace Controller",
+        "kind": "controller",
+        "layer": "infrastructure",
+        "filePath": "src/workspace/workspace.controller.ts"
+      },
+      {
+        "id": "src_workspace_workspace_service",
+        "name": "Workspace Service",
+        "kind": "service",
+        "layer": "infrastructure",
+        "filePath": "src/workspace/workspace.service.ts"
+      },
+      {
+        "id": "database_mongoose",
+        "name": "mongoose",
+        "kind": "database",
+        "layer": "persistence",
+        "filePath": ""
+      }
+    ],
+    "edges": [
+      {
+        "from": "src_auth_auth_controller",
+        "to": "src_auth_auth_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_membership_membership_controller",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_user_user_controller",
+        "to": "src_user_user_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_workspace_workspace_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_auth_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_channel_member_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_channel_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_membership_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_user_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_workspace_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      }
+    ]
   },
-  "externalApis": [],
-  "flows": [
+  "databaseAccessGraph": {
+    "nodes": [
+      {
+        "id": "src_model_auth_model",
+        "name": "Auth Model",
+        "kind": "auth-provider",
+        "layer": "infrastructure",
+        "filePath": "src/model/auth.model.ts"
+      },
+      {
+        "id": "src_model_channel_member_model",
+        "name": "Channel Member Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/channel_member.model.ts"
+      },
+      {
+        "id": "src_model_channel_model",
+        "name": "Channel Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/channel.model.ts"
+      },
+      {
+        "id": "src_model_membership_model",
+        "name": "Membership Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/membership.model.ts"
+      },
+      {
+        "id": "src_model_user_model",
+        "name": "User Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/user.model.ts"
+      },
+      {
+        "id": "src_model_workspace_model",
+        "name": "Workspace Model",
+        "kind": "model",
+        "layer": "infrastructure",
+        "filePath": "src/model/workspace.model.ts"
+      },
+      {
+        "id": "database_mongoose",
+        "name": "mongoose",
+        "kind": "database",
+        "layer": "persistence",
+        "filePath": ""
+      }
+    ],
+    "edges": [
+      {
+        "from": "src_model_auth_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_channel_member_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_channel_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_membership_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_user_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      },
+      {
+        "from": "src_model_workspace_model",
+        "to": "database_mongoose",
+        "type": "queries",
+        "level": "architecture"
+      }
+    ]
+  },
+  "criticalPaths": [
     {
-      "from": "CORE",
-      "to": "UI",
-      "type": "depends"
+      "name": "Get User Profile",
+      "importance": "medium",
+      "path": [
+        "GET /user-profile",
+        "src_user_user_controller",
+        "src_user_user_service",
+        "src_model_user_model",
+        "database_mongoose",
+        "src_user_user_schema"
+      ]
     },
     {
-      "from": "CORE",
-      "to": "API",
-      "type": "depends"
+      "name": "Create Workspace Handler",
+      "importance": "medium",
+      "path": [
+        "POST /workspace-handler",
+        "src_workspace_workspace_controller",
+        "src_workspace_workspace_service",
+        "src_model_workspace_model",
+        "database_mongoose",
+        "src_workspace_workspace_schema",
+        "src_membership_membership_service",
+        "src_model_membership_model"
+      ]
     },
     {
-      "from": "UI",
-      "to": "CORE",
-      "type": "depends"
-    },
-    {
-      "from": "API",
-      "to": "CORE",
-      "type": "depends"
-    },
-    {
-      "from": "API",
-      "to": "UI",
-      "type": "depends"
-    },
-    {
-      "from": "UI",
-      "to": "DATA",
-      "type": "depends"
-    },
-    {
-      "from": "DATA",
-      "to": "UI",
-      "type": "depends"
+      "name": "Get Workspace Handler",
+      "importance": "medium",
+      "path": [
+        "GET /workspace-handler",
+        "src_workspace_workspace_controller",
+        "src_workspace_workspace_service",
+        "src_model_workspace_model",
+        "database_mongoose",
+        "src_workspace_workspace_schema",
+        "src_membership_membership_service",
+        "src_model_membership_model"
+      ]
     }
   ],
-  "nodes": [
+  "entrypoints": [
     {
-      "id": "mod:root",
-      "name": "Root",
-      "type": "module",
-      "layer": "CORE",
-      "importance": "high"
+      "name": "App",
+      "type": "entry",
+      "filePath": "/home/abhishek/slack-clone-node/src/app.ts"
     },
     {
-      "id": "mod:renderer",
-      "name": "Renderer",
-      "type": "module",
-      "layer": "UI",
-      "importance": "high"
+      "name": "Server",
+      "type": "express-server",
+      "filePath": "/home/abhishek/slack-clone-node/src/server.ts"
     },
     {
-      "id": "mod:analysis",
-      "name": "Analysis",
-      "type": "module",
-      "layer": "CORE",
-      "importance": "high"
-    },
-    {
-      "id": "mod:persistence",
-      "name": "Persistence",
-      "type": "module",
-      "layer": "CORE",
-      "importance": "high"
-    },
-    {
-      "id": "mod:shared",
-      "name": "Shared",
-      "type": "module",
-      "layer": "CORE",
-      "importance": "high"
-    },
-    {
-      "id": "svc:setupIpcHandlers",
-      "name": "Setup Ipc Handlers",
-      "type": "service",
-      "layer": "API",
-      "importance": "high"
-    },
-    {
-      "id": "svc:graphRepository",
-      "name": "Graph Repository",
-      "type": "service",
-      "layer": "DATA",
-      "importance": "high"
+      "name": "Index",
+      "type": "entry",
+      "filePath": "/home/abhishek/slack-clone-node/src/permissions/index.ts"
     }
   ],
-  "edges": [
-    {
-      "source": "CORE",
-      "target": "UI",
-      "label": "depends"
-    },
-    {
-      "source": "CORE",
-      "target": "API",
-      "label": "depends"
-    },
-    {
-      "source": "UI",
-      "target": "CORE",
-      "label": "depends"
-    },
-    {
-      "source": "API",
-      "target": "CORE",
-      "label": "depends"
-    },
-    {
-      "source": "API",
-      "target": "UI",
-      "label": "depends"
-    },
-    {
-      "source": "UI",
-      "target": "DATA",
-      "label": "depends"
-    },
-    {
-      "source": "DATA",
-      "target": "UI",
-      "label": "depends"
+  "technology": {
+    "frontend": [],
+    "backend": [
+      "Express"
+    ],
+    "database": [
+      "MongoDB"
+    ],
+    "auth": [
+      "bcrypt",
+      "JWT"
+    ],
+    "deployment": [],
+    "runtime": [
+      "Node.js"
+    ]
+  },
+  "summary": {
+    "purpose": "Authentication platform",
+    "architecture": "Modular Monolith",
+    "mainFlow": "GET /user-profile → src_user_user_controller → src_user_user_service → src_model_user_model",
+    "authentication": "bcrypt",
+    "communication": "REST API"
+  },
+  "dependencyIntelligence": {
+    "internalEdges": [
+      {
+        "from": "src_auth_auth_controller",
+        "to": "src_auth_auth_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_auth_auth_service",
+        "to": "src_lib_jwt",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_membership_membership_controller",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_middleware_auth",
+        "to": "src_lib_jwt",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_middleware_membershipresolver",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_user_user_controller",
+        "to": "src_user_user_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_workspace_workspace_service",
+        "type": "calls",
+        "level": "architecture"
+      },
+      {
+        "from": "src_workspace_workspace_controller",
+        "to": "src_membership_membership_service",
+        "type": "calls",
+        "level": "architecture"
+      }
+    ],
+    "externalPackages": [
+      "bcrypt",
+      "cors",
+      "jsonwebtoken",
+      "mongoose",
+      "zod"
+    ]
+  },
+  "metadata": {
+    "projectName": "slack-clone-node",
+    "projectPath": "/home/abhishek/slack-clone-node",
+    "generatedAt": "2026-05-12T11:33:24.166Z",
+    "stats": {
+      "files": 44,
+      "functions": 23,
+      "services": 24,
+      "domains": 4,
+      "flows": 3
     }
-  ]
+  }
 }

@@ -56,6 +56,7 @@ export const setupIpcHandlers = (webContents?: WebContents) => {
     }
 
     const extractor = new ArchitectureExtractor(raw, currentProjectPath);
+     console.log("[IPC] Running architecture extraction...");
     return extractor.extract();
   });
 

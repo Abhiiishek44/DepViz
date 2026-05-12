@@ -84,7 +84,7 @@ export class IRBuilder {
     }
 
     this.graph.files.set(filePath, fileNode);
-  }
+  }             
 
   private getFunctionParams(rawFn: ReturnType<CodeAnalyzer["extractFunctions"]>[number]) {
     if ("getParameters" in rawFn) {
