@@ -8,6 +8,7 @@ const api = {
   getFunctionCalls: (functionId: string) => ipcRenderer.invoke("get-function-calls", functionId),
   getIncomingCalls: (functionId: string) => ipcRenderer.invoke("get-incoming-calls", functionId),
   extractArchitecture: () => ipcRenderer.invoke("extract-architecture"),
+  generateAiArchitecture: () => ipcRenderer.invoke("generate-ai-architecture"),
   onGraphUpdated: (callback: (graph: any) => void) => {
     ipcRenderer.on("graph-updated", (_event, graph) => callback(graph));
   }

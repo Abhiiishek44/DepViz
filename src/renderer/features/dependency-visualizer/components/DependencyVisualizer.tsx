@@ -64,10 +64,13 @@ export const DependencyVisualizer = () => {
     () => getBreadcrumbs(view, module?.name, file?.name),
     [file?.name, module?.name, view]
   );
-  const graph = useMemo(
-    () => buildGraphForView(model, view, debouncedSearch, hoveredEdgeId),
-    [debouncedSearch, hoveredEdgeId, model, view]
-  );
+  const aiGraph = useDependencyVisualizerStore((state) => state.aiGraph);
+  const graph = useMemo(() => {
+    if (view.level === "ai-architecture" && aiGraph) {
+      return aiGraph;
+    }
+    return buildGraphForView(model, view, debouncedSearch, hoveredEdgeId);
+  }, [debouncedSearch, hoveredEdgeId, model, view, aiGraph]);
 
   // Drill-down flow: module -> files -> functions. The short loading state makes transitions feel intentional.
   const handleNodeClick = useCallback((_: unknown, node: Node) => {
@@ -128,14 +131,35 @@ export const DependencyVisualizer = () => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [back, forward]);
 
-  const displayNodes = useMemo(
-    () =>
-      graph.nodes.map((node) => ({
+  const displayNodes = useMemo(() => {
+    return graph.nodes.map((node) => {
+      let data = node.data;
+
+      if (view.level === "ai-architecture") {
+        const aiData = node.data as any;
+        data = {
+          level: "ai-architecture",
+          title: aiData.label || node.id,
+          subtitle: aiData.description || aiData.layer || "Component",
+          badge: aiData.layer?.toUpperCase() || "AI",
+          kind: aiData.type || "service",
+          accent: getAccentForLayer(aiData.layer),
+          meta: {
+            Layer: aiData.layer || "Unknown",
+            Type: aiData.type || "Unknown",
+            Tech: aiData.techStack?.join(", ") || "N/A"
+          }
+        };
+      }
+
+      return {
         ...node,
+        type: "dependencyNode", // Ensure correct node type is used
+        data,
         selected: node.id === selectedNodeId
-      })),
-    [graph.nodes, selectedNodeId]
-  );
+      };
+    });
+  }, [graph.nodes, selectedNodeId, view.level]);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#030813] text-slate-200">
@@ -252,3 +276,13 @@ const EmptyProjectState = ({ onOpenProject }: { onOpenProject: () => void }) => 
     </div>
   </div>
 );
+
+const getAccentForLayer = (layer: string = "") => {
+  const l = layer.toLowerCase();
+  if (l.includes("presentation")) return "#f472b6"; // pink-400
+  if (l.includes("app")) return "#60a5fa"; // blue-400
+  if (l.includes("domain")) return "#34d399"; // emerald-400
+  if (l.includes("infra")) return "#fbbf24"; // amber-400
+  if (l.includes("external")) return "#94a3b8"; // slate-400
+  return "#a78bfa"; // violet-400
+};

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Viewport } from "reactflow";
 import { BreadcrumbEntry, ViewState, ViewportByKey, VisualizerLevel } from "../types";
+import { AIRenderGraph } from "../../../../shared/protocol";
 
 type DependencyVisualizerState = {
   view: ViewState;
@@ -13,12 +14,15 @@ type DependencyVisualizerState = {
   history: ViewState[];
   future: ViewState[];
   viewportByKey: ViewportByKey;
+  aiGraph: AIRenderGraph | null;
   selectNode: (nodeId: string | null) => void;
   setHoveredEdge: (edgeId: string | null) => void;
   setSearch: (search: string) => void;
   setZoom: (zoom: number) => void;
   setFullscreen: (isFullscreen: boolean) => void;
   setLoading: (isLoading: boolean) => void;
+  setAiGraph: (graph: AIRenderGraph | null) => void;
+  switchToAiView: () => void;
   saveViewport: (viewport: Viewport) => void;
   resetNavigation: () => void;
   drillToModule: (moduleId: string) => void;
@@ -41,12 +45,19 @@ export const useDependencyVisualizerStore = create<DependencyVisualizerState>((s
   history: [],
   future: [],
   viewportByKey: {},
+  aiGraph: null,
   selectNode: (selectedNodeId) => set({ selectedNodeId }),
   setHoveredEdge: (hoveredEdgeId) => set({ hoveredEdgeId }),
   setSearch: (search) => set({ search }),
   setZoom: (zoom) => set({ zoom: Math.round(zoom * 100) }),
   setFullscreen: (isFullscreen) => set({ isFullscreen }),
   setLoading: (isLoading) => set({ isLoading }),
+  setAiGraph: (aiGraph) => set({ aiGraph }),
+  switchToAiView: () => {
+    const { view } = get();
+    if (view.level === "ai-architecture") return;
+    pushView(set, get, { level: "ai-architecture" }, null);
+  },
   saveViewport: (viewport) => {
     const { view, viewportByKey } = get();
     set({ viewportByKey: { ...viewportByKey, [viewKey(view)]: viewport } });
@@ -57,7 +68,8 @@ export const useDependencyVisualizerStore = create<DependencyVisualizerState>((s
     hoveredEdgeId: null,
     history: [],
     future: [],
-    viewportByKey: {}
+    viewportByKey: {},
+    aiGraph: null
   }),
   drillToModule: (moduleId) => pushView(set, get, { level: "files", moduleId }, moduleId),
   drillToFile: (fileId) => {
@@ -120,6 +132,10 @@ export const getBreadcrumbs = (
 ): BreadcrumbEntry[] => {
   const crumbs: BreadcrumbEntry[] = [{ level: "architecture", label: "Architecture" }];
 
+  if (view.level === "ai-architecture") {
+    crumbs.push({ level: "ai-architecture", label: "AI Architecture" });
+  }
+
   if (view.moduleId) {
     crumbs.push({ level: "files", moduleId: view.moduleId, label: moduleName || view.moduleId });
   }
@@ -134,5 +150,6 @@ export const getBreadcrumbs = (
 export const levelTitle: Record<VisualizerLevel, string> = {
   architecture: "High-Level Architecture",
   files: "Files Inside Module",
-  functions: "Functions Inside File"
+  functions: "Functions Inside File",
+  "ai-architecture": "AI-Generated Architecture"
 };
