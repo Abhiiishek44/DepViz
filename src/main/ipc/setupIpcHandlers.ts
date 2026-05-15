@@ -1,9 +1,12 @@
+import "dotenv/config";
 import { dialog, ipcMain, WebContents } from "electron";
 import { ArchitectureExtractor } from "../analysis/architectureExtractor";
 import { CodeAnalyzer } from "../analysis/codeAnalyzer";
 import { IRBuilder } from "../analysis/irBuilder";
 import { CodeWatcher } from "../watch/codeWatcher";
-
+import { ArchitecturePipeline } from "../ai/pipeline/ArchitecturePipeline";
+import dotenv from "dotenv";
+dotenv.config();
 export const setupIpcHandlers = (webContents?: WebContents) => {
   const analyzer = new CodeAnalyzer();
   const builder = new IRBuilder();
@@ -56,8 +59,36 @@ export const setupIpcHandlers = (webContents?: WebContents) => {
     }
 
     const extractor = new ArchitectureExtractor(raw, currentProjectPath);
-     console.log("[IPC] Running architecture extraction...");
+    console.log("[IPC] Running architecture extraction...");
     return extractor.extract();
+  });
+
+  ipcMain.handle("generate-ai-architecture", async () => {
+    console.log("[IPC] Starting AI architecture generation...");
+    const raw = builder.getRawGraph();
+    if (raw.files.size === 0) {
+      return { error: "No project loaded. Load a project first." };
+    }
+
+    try {
+      const extractor = new ArchitectureExtractor(raw, currentProjectPath);
+      const archJson = extractor.extract();
+
+      // For MVP, we use the key from environment
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return { error: "GEMINI_API_KEY not found in environment. Please set it to use AI features." };
+      }
+
+      console.log("[IPC] Executing AI Pipeline...");
+      const pipeline = new ArchitecturePipeline(apiKey);
+      const result = await pipeline.run(archJson);
+
+      return { success: true, graph: result };
+    } catch (error: any) {
+      console.error("[IPC] AI Generation failed:", error);
+      return { error: error.message || "Failed to generate AI architecture" };
+    }
   });
 
   ipcMain.handle("get-graph", async () => {

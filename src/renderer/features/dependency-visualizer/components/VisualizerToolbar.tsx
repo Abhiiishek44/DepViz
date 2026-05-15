@@ -18,6 +18,30 @@ export const VisualizerToolbar = ({
   const isFullscreen = useDependencyVisualizerStore((state) => state.isFullscreen);
   const setFullscreen = useDependencyVisualizerStore((state) => state.setFullscreen);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { aiGraph, setAiGraph, switchToAiView, setLoading } = useDependencyVisualizerStore();
+
+  const handleGenerateAI = async () => {
+    if (!projectName) {
+      alert("Please open a project first.");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const res = await window.api.generateAiArchitecture();
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+      setAiGraph(res.graph);
+      switchToAiView();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate AI architecture.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -80,6 +104,13 @@ export const VisualizerToolbar = ({
         <IconButton title="Settings">
           <Settings className="h-4 w-4" />
         </IconButton>
+        <button
+          onClick={handleGenerateAI}
+          className="ml-1 flex h-8 items-center gap-2 rounded-lg border border-purple-400/25 bg-purple-500/15 px-3 text-xs font-bold text-purple-200 transition hover:bg-purple-500/25 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          AI Architecture
+        </button>
         <button
           onClick={onOpenProject}
           className="ml-1 flex h-8 items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/15 px-3 text-xs font-semibold text-blue-100 transition hover:bg-blue-500/25"

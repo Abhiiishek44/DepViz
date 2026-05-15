@@ -64,3 +64,27 @@ export interface GraphSnapshot {
 export type GraphSyncEvent =
   | { type: "SNAPSHOT"; timestamp: number; payload: GraphSnapshot }
   | { type: "PATCH"; timestamp: number; patch: GraphPatch };
+
+export interface AIArcNode {
+  id: string;
+  type?: string;
+  data: { label: string; layer: string; description?: string; techStack?: string[] };
+  position: { x: number; y: number };
+  parentId?: string;
+  extent?: "parent";
+}
+
+export interface AIArcEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  animated?: boolean;
+  type?: string;
+}
+
+export interface AIRenderGraph {
+  title: string;
+  nodes: AIArcNode[];
+  edges: AIArcEdge[];
+}

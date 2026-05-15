@@ -1,7 +1,7 @@
 import { Edge, Node, Viewport } from "reactflow";
 import { CodeGraph as ProjectCodeGraph } from "../graph/types/graphTypes";
 
-export type VisualizerLevel = "architecture" | "files" | "functions";
+export type VisualizerLevel = "architecture" | "files" | "functions" | "ai-architecture";
 export type ServiceKind = "client" | "gateway" | "service" | "database";
 
 export type ModuleNode = {
